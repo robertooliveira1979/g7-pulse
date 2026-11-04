@@ -31,3 +31,7 @@ npm run dev
 | `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave pública (anon/publishable) |
 | `G7_EMPRESA_MODELO` | ID da empresa cujo plano de contas é copiado para empresas novas |
+
+## Migrações aplicadas direto no Supabase (fora deste repositório)
+
+Em 04/11/2026 foram aplicadas no projeto, além de `schema_inicial`: `revogar_execute_security_definer`, `performance_indices_e_rls`, `integridade_multiempresa_e_perfis`, `auditoria_convites_admin_saldo` e `auto_aceitar_convites_no_cadastro` (função `aceitar_convite`, trava de último administrador, convite de administrador da Marvee). Exportar para `supabase/migrations/` antes de criar um ambiente novo.
