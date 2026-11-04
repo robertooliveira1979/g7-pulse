@@ -23,6 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       { href: "/fornecedores", rotulo: "Fornecedores", icone: "truck" },
       { href: "/contas", rotulo: "Contas e caixas", icone: "bank" },
     ]],
+    ["Configurações", [{ href: "/integracoes", rotulo: "Integrações", icone: "link" }]],
   ];
   return (
     <div className="shell">
