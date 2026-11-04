@@ -9,13 +9,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono&display=swap"
         />
+        <script dangerouslySetInnerHTML={{ __html: "try{var t=localStorage.getItem('g7-tema');if(t)document.documentElement.dataset.theme=t}catch(e){}" }} />
       </head>
       <body>{children}</body>
     </html>

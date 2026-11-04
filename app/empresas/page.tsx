@@ -18,10 +18,11 @@ export default async function Empresas({ searchParams }: { searchParams: Promise
       {lista.map((v) => (
         <form key={v.empresas.id} action={escolherEmpresa}>
           <input type="hidden" name="empresa_id" value={v.empresas.id} />
-          <button className="card" style={{ width: "100%", textAlign: "left", cursor: "pointer", flexDirection: "row", alignItems: "center" }}>
-            <span style={{ flex: 1 }}><b>{v.empresas.nome_fantasia || v.empresas.razao_social}</b><br /><span className="muted">{v.empresas.cnpj} · {v.papel.replace("_", " ")}</span></span>
+          <div className="picker"><button>
+            <span className="ini">{(v.empresas.nome_fantasia || v.empresas.razao_social)[0]}</span>
+            <span className="t"><b>{v.empresas.nome_fantasia || v.empresas.razao_social}</b><small>{v.empresas.cnpj} · {v.papel.replace("_", " ")}</small></span>
             <span className="pill pend">Entrar</span>
-          </button>
+          </button></div>
         </form>
       ))}
       <form action={criarEmpresa} className="card">
