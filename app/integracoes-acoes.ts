@@ -32,8 +32,9 @@ export async function salvarConfigNfse(f: FormData) {
   const { error } = await sb.from("integracoes").upsert({
     empresa_id: empresaId,
     nfse_ambiente: String(f.get("ambiente")) === "producao" ? "producao" : "producao_restrita",
-    nfse_codigo_tributacao_padrao: String(f.get("codigo") || "").trim() || null,
+    nfse_codigo_tributacao_padrao: String(f.get("codigo") || "").replace(/\D/g, "") || null,
     nfse_aliquota_iss_padrao: aliq ? Number(aliq) : null,
+    nfse_cnbs_padrao: String(f.get("cnbs") || "").replace(/\D/g, "") || null,
     atualizado_em: new Date().toISOString(),
   }, { onConflict: "empresa_id" });
   if (error) volta("erro=" + encodeURIComponent(error.message));

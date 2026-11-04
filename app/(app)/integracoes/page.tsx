@@ -10,7 +10,7 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
   const pode = ["administrador", "operador_bpo"].includes(papel);
   const [{ data: emp }, { data: integ }] = await Promise.all([
     sb.from("empresas").select("razao_social,cnpj,inscricao_municipal,municipio,uf,municipio_ibge,regime_tributario").eq("id", empresaId).single(),
-    sb.from("integracoes").select("nfse_ambiente,nfse_certificado_validade,nfse_certificado_titular,nfse_certificado_cnpj,nfse_certificado_enviado_em,nfse_codigo_tributacao_padrao,nfse_aliquota_iss_padrao,nfse_ativo").eq("empresa_id", empresaId).maybeSingle(),
+    sb.from("integracoes").select("nfse_ambiente,nfse_certificado_validade,nfse_certificado_titular,nfse_certificado_cnpj,nfse_certificado_enviado_em,nfse_codigo_tributacao_padrao,nfse_aliquota_iss_padrao,nfse_cnbs_padrao,nfse_ativo").eq("empresa_id", empresaId).maybeSingle(),
   ]);
   const temCert = !!integ?.nfse_certificado_validade;
   const dias = temCert ? Math.round((new Date(integ!.nfse_certificado_validade!).getTime() - new Date(hojeSP()).getTime()) / 864e5) : 0;
@@ -51,8 +51,9 @@ export default async function Integracoes({ searchParams }: { searchParams: Prom
             <div className="card-h"><h2>Configuração da emissão</h2></div>
             <form action={salvarConfigNfse} className="form">
               <div className="field s3"><label htmlFor="ambiente">Ambiente</label><select id="ambiente" name="ambiente" defaultValue={integ?.nfse_ambiente || "producao_restrita"} disabled={!pode}><option value="producao_restrita">Produção restrita (testes)</option><option value="producao">Produção (notas válidas)</option></select></div>
-              <div className="field s3"><label htmlFor="codigo">Código de tributação nacional</label><input id="codigo" className="input" name="codigo" placeholder="Ex.: 17.06.01" defaultValue={integ?.nfse_codigo_tributacao_padrao || ""} disabled={!pode} /></div>
-              <div className="field s3"><label htmlFor="aliquota">Alíquota ISS (%)</label><input id="aliquota" className="input" name="aliquota" placeholder="Ex.: 2,00" defaultValue={integ?.nfse_aliquota_iss_padrao ?? ""} disabled={!pode} /></div>
+              <div className="field s2"><label htmlFor="codigo">Código de tributação nacional</label><input id="codigo" className="input" name="codigo" placeholder="Ex.: 17.06.01" defaultValue={integ?.nfse_codigo_tributacao_padrao || ""} disabled={!pode} /></div>
+              <div className="field s2"><label htmlFor="aliquota">Alíquota ISS (%)</label><input id="aliquota" className="input" name="aliquota" placeholder="Simples: deixe vazio" defaultValue={integ?.nfse_aliquota_iss_padrao ?? ""} disabled={!pode} /></div>
+              <div className="field s2"><label htmlFor="cnbs">Código NBS</label><input id="cnbs" className="input" name="cnbs" placeholder="Ex.: 114061900" defaultValue={integ?.nfse_cnbs_padrao || ""} disabled={!pode} /></div>
               <div className="field s3"><label>Regime tributário</label><input className="input" value={emp?.regime_tributario || "—"} disabled /></div>
               {pode && <div className="s6"><button className="btn">Salvar configuração</button></div>}
             </form>

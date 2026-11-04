@@ -3,10 +3,12 @@ import Topo from "@/components/Topo";
 import { contexto } from "@/lib/empresa";
 import { hojeSP } from "@/lib/format";
 import { salvarTitulo, excluirTitulo } from "@/app/acoes";
+import { emitirNfse } from "@/app/nfse-acoes";
+import { brl, dataBR } from "@/lib/format";
 
 const FORMAS = { receber: ["boleto", "pix", "cartao credito", "transferencia", "dinheiro", "outros"], pagar: ["pix", "boleto", "debito em conta", "cartao credito", "transferencia", "dinheiro", "outros"] };
 
-export default async function Titulo({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tipo?: string; erro?: string }> }) {
+export default async function Titulo({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tipo?: string; erro?: string; ok?: string }> }) {
   const { id } = await params;
   const sp = await searchParams;
   const { sb, empresaId, podeEditar } = await contexto();
@@ -23,6 +25,7 @@ export default async function Titulo({ params, searchParams }: { params: Promise
     sb.from("pessoas").select("id,razao_social,nome_fantasia").eq("empresa_id", empresaId).eq(tipo === "receber" ? "e_cliente" : "e_fornecedor", true).eq("ativo", true).order("razao_social"),
     sb.from("contas_bancarias").select("id,nome").eq("empresa_id", empresaId).eq("ativa", true).order("nome"),
   ]);
+  const { data: notas } = t.id ? await sb.from("notas_fiscais").select("id,numero,serie,data_emissao,valor,status,ambiente,chave_acesso,erros,pdf_url_externo").eq("titulo_id", t.id).order("criado_em", { ascending: false }) : { data: [] as any[] };
   const F = (k: string, label: string, cls = "s2", tipoInput = "text", extra: Record<string, any> = {}) => (
     <div className={"field " + cls}><label htmlFor={k}>{label}</label><input className="input" id={k} name={k} type={tipoInput} defaultValue={t[k] ?? extra.def ?? ""} {...(extra.req ? { required: true } : {})} /></div>
   );
@@ -51,6 +54,30 @@ export default async function Titulo({ params, searchParams }: { params: Promise
           {sp.erro && <div className="err s6">{sp.erro}</div>}
           {podeEditar && <div className="s6" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}><button className="btn p">Salvar</button></div>}
         </form>
+        {tipo === "receber" && t.id && (
+          <div className="card" style={{ maxWidth: 900 }}>
+            <div className="card-h"><h2>Nota fiscal de serviço</h2>
+              {podeEditar && !(notas || []).some((n) => n.status === "autorizada" && n.ambiente === "producao") && (
+                <form action={emitirNfse}><input type="hidden" name="titulo_id" value={t.id} /><button className="btn p">Emitir NFS-e</button></form>
+              )}
+            </div>
+            {sp.ok && <div className="ok-msg" style={{ color: "var(--ok, #35C487)", marginBottom: 10 }}>{sp.ok}</div>}
+            {(notas || []).length === 0 ? <p className="muted" style={{ margin: 0 }}>Nenhuma nota emitida para esta conta.</p> : (
+              <table className="tbl"><thead><tr><th>Número</th><th>Emissão</th><th>Valor</th><th>Situação</th><th>Detalhe</th></tr></thead><tbody>
+                {(notas || []).map((n) => (
+                  <tr key={n.id}>
+                    <td>{n.numero}{n.ambiente === "producao_restrita" && <span className="muted"> · teste</span>}</td>
+                    <td>{dataBR(n.data_emissao)}</td><td className="num">{brl(Number(n.valor || 0))}</td>
+                    <td>{n.status}</td>
+                    <td className="muted" style={{ fontSize: 12, maxWidth: 380 }}>
+                      {n.chave_acesso ? <>Chave {n.chave_acesso}</> : (n.erros || []).map((e: any) => `${e.codigo} ${e.descricao}`).join(" · ")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody></table>
+            )}
+          </div>
+        )}
         {podeEditar && t.id && <form action={excluirTitulo}><input type="hidden" name="id" value={t.id} /><input type="hidden" name="tipo" value={tipo} /><button className="btn danger">Excluir este título</button></form>}
       </div>
     </>
