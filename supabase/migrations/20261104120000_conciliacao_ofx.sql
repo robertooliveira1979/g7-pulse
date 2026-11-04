@@ -1,0 +1,3 @@
+-- Conciliação bancária por OFX (aplicada no Supabase em 04/11/2026)
+-- Tabelas extrato_importacoes e extrato_transacoes, com RLS por empresa.
+-- Ver o projeto Supabase para o SQL completo (migrações conciliacao_ofx e ajuste do trigger chk_extrato_imp).
