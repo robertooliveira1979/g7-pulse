@@ -13,6 +13,10 @@ export const SEFIN = {
   producao_restrita: "https://sefin.producaorestrita.nfse.gov.br/SefinNacional",
 } as const;
 export type Ambiente = keyof typeof SEFIN;
+export const ADN = {
+  producao: "https://adn.nfse.gov.br",
+  producao_restrita: "https://adn.producaorestrita.nfse.gov.br",
+} as const;
 
 export type DadosDPS = {
   ambiente: Ambiente;
@@ -103,27 +107,45 @@ export function assinarDPS(inf: { id: string; canonico: string; corpo: string },
   );
 }
 
-export type RespostaSefin = { status: number; corpo: any; texto: string };
+export type RespostaSefin = { status: number; corpo: any; texto: string; bruto: Buffer; tipo: string };
 
 /** Requisição mTLS à Sefin Nacional */
 export function sefin(ambiente: Ambiente, metodo: "GET" | "POST", caminho: string, cred: Credencial, json?: unknown): Promise<RespostaSefin> {
-  const url = new URL(SEFIN[ambiente] + caminho);
+  return mtls(SEFIN[ambiente] + caminho, metodo, cred, json);
+}
+
+/** PDF oficial (DANFSe) gerado pelo Ambiente de Dados Nacional */
+export async function baixarDanfse(ambiente: Ambiente, chave: string, cred: Credencial): Promise<Buffer> {
+  let ultimo = "";
+  for (let i = 0; i < 3; i++) {
+    const r = await mtls(`${ADN[ambiente]}/danfse/${chave}`, "GET", cred, undefined, "application/pdf");
+    if (r.status === 200 && r.bruto.subarray(0, 4).toString() === "%PDF") return r.bruto;
+    ultimo = `${r.status} ${r.texto.slice(0, 200)}`;
+    await new Promise((ok) => setTimeout(ok, 1500 * (i + 1))); // a nota leva alguns segundos para chegar ao ADN
+  }
+  throw new Error("DANFSe indisponível no momento (" + ultimo + ")");
+}
+
+function mtls(endereco: string, metodo: "GET" | "POST", cred: Credencial, json?: unknown, aceita = "application/json"): Promise<RespostaSefin> {
+  const url = new URL(endereco);
   const body = json === undefined ? undefined : Buffer.from(JSON.stringify(json));
   return new Promise((resolve, reject) => {
     const req = https.request(
       {
         method: metodo, hostname: url.hostname, path: url.pathname + url.search, key: cred.keyPem, cert: cred.certPem,
-        headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json", "Content-Length": body.length } : {}) },
+        headers: { Accept: aceita, ...(body ? { "Content-Type": "application/json", "Content-Length": body.length } : {}) },
         timeout: 30_000,
       },
       (res) => {
         const parts: Buffer[] = [];
         res.on("data", (c) => parts.push(c));
         res.on("end", () => {
-          const texto = Buffer.concat(parts).toString("utf8");
+          const bruto = Buffer.concat(parts);
+          const tipo = String(res.headers["content-type"] || "");
+          const texto = tipo.includes("pdf") ? "" : bruto.toString("utf8");
           let corpo: any = null;
           try { corpo = JSON.parse(texto); } catch { /* não-JSON */ }
-          resolve({ status: res.statusCode || 0, corpo, texto });
+          resolve({ status: res.statusCode || 0, corpo, texto, bruto, tipo });
         });
       },
     );

@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { contexto } from "@/lib/empresa";
 import { hojeSP } from "@/lib/format";
-import { abrirPfx, emitirDPS, type Ambiente } from "@/lib/nfse";
+import { emitirDPS, type Ambiente } from "@/lib/nfse";
+import { credencial, guardarArquivos, obterPdf, obterXml, enviarEmail, type NotaArquivos } from "@/lib/notas";
+import { brl, dataBR } from "@/lib/format";
 
 export async function emitirNfse(f: FormData) {
   const id = String(f.get("titulo_id") || "");
@@ -25,10 +27,8 @@ export async function emitirNfse(f: FormData) {
   if (!e?.cnpj || !e?.municipio_ibge) volta("erro=" + encodeURIComponent("Cadastro da empresa sem CNPJ ou código IBGE do município."));
 
   const ambiente = (cfg!.nfse_ambiente === "producao" ? "producao" : "producao_restrita") as Ambiente;
-  const { data: cert, error: eCert } = await sb.rpc("obter_certificado_nfse", { p_empresa: empresaId, p_chave: process.env.NFSE_CHAVE_SERVICO || "" });
-  if (eCert || !cert?.[0]?.pfx_base64) volta("erro=" + encodeURIComponent("Não consegui ler o certificado no cofre: " + (eCert?.message || "vazio")));
   let cred;
-  try { cred = abrirPfx(cert![0].pfx_base64, cert![0].senha); } catch (x) { volta("erro=" + encodeURIComponent("Certificado não abriu: " + (x as Error).message)); }
+  try { cred = await credencial(sb, empresaId); } catch (x) { volta("erro=" + encodeURIComponent((x as Error).message)); }
 
   const { data: dps, error: eDps } = await sb.rpc("reservar_dps_nfse", { p_empresa: empresaId, p_ambiente: ambiente });
   if (eDps || !dps?.[0]) volta("erro=" + encodeURIComponent("Não consegui reservar o número da DPS: " + (eDps?.message || "")));
@@ -57,11 +57,62 @@ export async function emitirNfse(f: FormData) {
   };
   const res = r!;
   if (res.ok) {
-    await sb.from("notas_fiscais").insert({ ...base, numero: res.numero || String(numero), status: "autorizada", chave_acesso: res.chave });
+    const { data: nota } = await sb.from("notas_fiscais").insert({ ...base, numero: res.numero || String(numero), status: "autorizada", chave_acesso: res.chave }).select("id").single();
+    let pdfOk = false;
+    if (nota) pdfOk = !!(await guardarArquivos(sb, { id: nota.id, empresa_id: empresaId, chave_acesso: res.chave, ambiente }, res.xml, cred!));
     revalidatePath(`/titulos/${id}`);
-    return volta("ok=" + encodeURIComponent(`NFS-e nº ${res.numero} autorizada${ambiente === "producao" ? "" : " (ambiente de teste, sem valor fiscal)"}.`));
+    return volta("ok=" + encodeURIComponent(`NFS-e nº ${res.numero} autorizada${ambiente === "producao" ? "" : " (ambiente de teste, sem valor fiscal)"}.${pdfOk ? "" : " O PDF ainda está sendo gerado pela Receita; ele é buscado automaticamente ao abrir ou enviar."}`));
   }
   await sb.from("notas_fiscais").insert({ ...base, numero: `DPS ${numero}`, status: "rejeitada", erros: res.erros });
   revalidatePath(`/titulos/${id}`);
   volta("erro=" + encodeURIComponent("Sefin recusou: " + res.erros.map((x) => `${x.codigo} ${x.descricao}${x.complemento ? " (" + x.complemento + ")" : ""}`).join(" · ")));
+}
+
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+/** Envia o PDF (e o XML) da nota por e-mail ao cliente */
+export async function enviarNotaEmail(f: FormData) {
+  const notaId = String(f.get("nota_id") || "");
+  const tituloId = String(f.get("titulo_id") || "");
+  const volta = (q: string): never => redirect(`/titulos/${tituloId}?${q}`);
+  const { sb, empresaId, podeEditar, user, perfil } = await contexto();
+  if (!podeEditar) volta("erro=" + encodeURIComponent("Seu perfil não pode enviar notas."));
+  const para = String(f.get("para") || "").split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
+  if (!para.length || para.some((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x))) volta("erro=" + encodeURIComponent("Informe e-mail(s) válido(s), separados por vírgula."));
+  if (para.length > 5) volta("erro=" + encodeURIComponent("No máximo 5 destinatários por envio."));
+  const mensagem = String(f.get("mensagem") || "").slice(0, 2000);
+
+  const [{ data: n }, { data: emp }] = await Promise.all([
+    sb.from("notas_fiscais").select("id,empresa_id,chave_acesso,ambiente,pdf_path,xml_path,numero,valor,data_emissao,status,pessoas(razao_social,nome_fantasia)").eq("id", notaId).eq("empresa_id", empresaId).single(),
+    sb.from("empresas").select("razao_social,nome_fantasia,cnpj").eq("id", empresaId).single(),
+  ]);
+  if (!n || n.status !== "autorizada") volta("erro=" + encodeURIComponent("Só é possível enviar notas autorizadas."));
+  let pdf: Buffer | undefined; let xml: Buffer | null = null;
+  try { pdf = await obterPdf(sb, n as unknown as NotaArquivos); xml = await obterXml(sb, n as unknown as NotaArquivos); }
+  catch (x) { volta("erro=" + encodeURIComponent((x as Error).message)); }
+
+  const nomeEmp = emp?.nome_fantasia || emp?.razao_social || "G7 Pulse";
+  const cliente = (n as any).pessoas?.nome_fantasia || (n as any).pessoas?.razao_social || "";
+  const teste = n!.ambiente === "producao_restrita";
+  const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#1d2a30;line-height:1.5">
+    <p>Olá${cliente ? ", " + esc(cliente) : ""}!</p>
+    ${mensagem ? `<p>${esc(mensagem).replace(/\n/g, "<br>")}</p>` : `<p>Segue em anexo a nota fiscal de serviço referente aos nossos serviços.</p>`}
+    <table style="border-collapse:collapse;margin:12px 0">
+      <tr><td style="padding:4px 12px 4px 0;color:#5b6b72">NFS-e</td><td><b>nº ${esc(n!.numero)}</b>${teste ? " (teste, sem valor fiscal)" : ""}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#5b6b72">Emissão</td><td>${dataBR(n!.data_emissao)}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#5b6b72">Valor</td><td>${brl(Number(n!.valor || 0))}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#5b6b72">Chave</td><td style="font-family:monospace;font-size:12px">${esc(n!.chave_acesso || "")}</td></tr>
+    </table>
+    <p style="color:#5b6b72;font-size:12px">A autenticidade pode ser consultada em nfse.gov.br. Responda este e-mail para falar com ${esc(nomeEmp)}.</p>
+  </div>`;
+  try {
+    await enviarEmail({
+      para, responderPara: (perfil as any)?.email || user.email, remetenteNome: nomeEmp,
+      assunto: `${teste ? "[TESTE] " : ""}NFS-e nº ${n!.numero} - ${nomeEmp}`, html,
+      anexos: [{ nome: `NFS-e-${n!.numero}.pdf`, conteudo: pdf! }, ...(xml ? [{ nome: `NFS-e-${n!.numero}.xml`, conteudo: xml }] : [])],
+    });
+  } catch (x) { volta("erro=" + encodeURIComponent((x as Error).message)); }
+  await sb.from("notas_fiscais").update({ email_enviado_em: new Date().toISOString(), email_enviado_para: para.join(", ") }).eq("id", notaId);
+  revalidatePath(`/titulos/${tituloId}`);
+  volta("ok=" + encodeURIComponent(`Nota enviada para ${para.join(", ")}.`));
 }

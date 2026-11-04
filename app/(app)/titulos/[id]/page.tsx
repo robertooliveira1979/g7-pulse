@@ -3,7 +3,7 @@ import Topo from "@/components/Topo";
 import { contexto } from "@/lib/empresa";
 import { hojeSP } from "@/lib/format";
 import { salvarTitulo, excluirTitulo } from "@/app/acoes";
-import { emitirNfse } from "@/app/nfse-acoes";
+import { emitirNfse, enviarNotaEmail } from "@/app/nfse-acoes";
 import { brl, dataBR } from "@/lib/format";
 
 const FORMAS = { receber: ["boleto", "pix", "cartao credito", "transferencia", "dinheiro", "outros"], pagar: ["pix", "boleto", "debito em conta", "cartao credito", "transferencia", "dinheiro", "outros"] };
@@ -25,7 +25,7 @@ export default async function Titulo({ params, searchParams }: { params: Promise
     sb.from("pessoas").select("id,razao_social,nome_fantasia").eq("empresa_id", empresaId).eq(tipo === "receber" ? "e_cliente" : "e_fornecedor", true).eq("ativo", true).order("razao_social"),
     sb.from("contas_bancarias").select("id,nome").eq("empresa_id", empresaId).eq("ativa", true).order("nome"),
   ]);
-  const { data: notas } = t.id ? await sb.from("notas_fiscais").select("id,numero,serie,data_emissao,valor,status,ambiente,chave_acesso,erros,pdf_url_externo").eq("titulo_id", t.id).order("criado_em", { ascending: false }) : { data: [] as any[] };
+  const { data: notas } = t.id ? await sb.from("notas_fiscais").select("id,numero,serie,data_emissao,valor,status,ambiente,chave_acesso,erros,pdf_url_externo,xml_path,email_enviado_em,email_enviado_para,pessoas(email)").eq("titulo_id", t.id).order("criado_em", { ascending: false }) : { data: [] as any[] };
   const F = (k: string, label: string, cls = "s2", tipoInput = "text", extra: Record<string, any> = {}) => (
     <div className={"field " + cls}><label htmlFor={k}>{label}</label><input className="input" id={k} name={k} type={tipoInput} defaultValue={t[k] ?? extra.def ?? ""} {...(extra.req ? { required: true } : {})} /></div>
   );
@@ -55,7 +55,7 @@ export default async function Titulo({ params, searchParams }: { params: Promise
           {podeEditar && <div className="s6" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}><button className="btn p">Salvar</button></div>}
         </form>
         {tipo === "receber" && t.id && (
-          <div className="card" style={{ maxWidth: 900 }}>
+          <div className="card" id="nota" style={{ maxWidth: 900 }}>
             <div className="card-h"><h2>Nota fiscal de serviço</h2>
               {podeEditar && !(notas || []).some((n) => n.status === "autorizada" && n.ambiente === "producao") && (
                 <form action={emitirNfse}><input type="hidden" name="titulo_id" value={t.id} /><button className="btn p">Emitir NFS-e</button></form>
@@ -63,18 +63,38 @@ export default async function Titulo({ params, searchParams }: { params: Promise
             </div>
             {sp.ok && <div className="ok-msg" style={{ color: "var(--ok, #35C487)", marginBottom: 10 }}>{sp.ok}</div>}
             {(notas || []).length === 0 ? <p className="muted" style={{ margin: 0 }}>Nenhuma nota emitida para esta conta.</p> : (
-              <table className="tbl"><thead><tr><th>Número</th><th>Emissão</th><th>Valor</th><th>Situação</th><th>Detalhe</th></tr></thead><tbody>
-                {(notas || []).map((n) => (
-                  <tr key={n.id}>
-                    <td>{n.numero}{n.ambiente === "producao_restrita" && <span className="muted"> · teste</span>}</td>
-                    <td>{dataBR(n.data_emissao)}</td><td className="num">{brl(Number(n.valor || 0))}</td>
-                    <td>{n.status}</td>
-                    <td className="muted" style={{ fontSize: 12, maxWidth: 380 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {(notas || []).map((n: any) => (
+                  <div key={n.id} style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 12 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", justifyContent: "space-between" }}>
+                      <div>
+                        <b>NFS-e {n.numero}</b>{n.ambiente === "producao_restrita" && <span className="muted"> · teste</span>}
+                        <span className="muted"> · {dataBR(n.data_emissao)} · {brl(Number(n.valor || 0))} · {n.status}</span>
+                      </div>
+                      {n.status === "autorizada" && (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <a className="btn" href={`/notas/${n.id}/pdf`} target="_blank" rel="noreferrer">Ver PDF</a>
+                          {n.xml_path && <a className="btn" href={`/notas/${n.id}/xml`}>Baixar XML</a>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 6, wordBreak: "break-all" }}>
                       {n.chave_acesso ? <>Chave {n.chave_acesso}</> : (n.erros || []).map((e: any) => `${e.codigo} ${e.descricao}`).join(" · ")}
-                    </td>
-                  </tr>
+                    </div>
+                    {n.status === "autorizada" && podeEditar && (
+                      <form action={enviarNotaEmail} className="form" style={{ marginTop: 10 }}>
+                        <input type="hidden" name="nota_id" value={n.id} /><input type="hidden" name="titulo_id" value={t.id} />
+                        <div className="field s3"><label htmlFor={`para-${n.id}`}>Enviar por e-mail para</label><input id={`para-${n.id}`} className="input" name="para" defaultValue={n.email_enviado_para || n.pessoas?.email || ""} placeholder="cliente@empresa.com.br, outro@empresa.com.br" required /></div>
+                        <div className="field s3"><label htmlFor={`msg-${n.id}`}>Mensagem (opcional)</label><input id={`msg-${n.id}`} className="input" name="mensagem" placeholder="Segue a nota referente a outubro." /></div>
+                        <div className="s6" style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between" }}>
+                          <span className="muted" style={{ fontSize: 12 }}>{n.email_enviado_em ? `Último envio em ${dataBR(String(n.email_enviado_em).slice(0, 10))} para ${n.email_enviado_para}` : "PDF e XML vão anexados."}</span>
+                          <button className="btn p">{n.email_enviado_em ? "Reenviar" : "Enviar nota"}</button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
                 ))}
-              </tbody></table>
+              </div>
             )}
           </div>
         )}
