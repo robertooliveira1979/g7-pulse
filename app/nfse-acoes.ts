@@ -55,12 +55,13 @@ export async function emitirNfse(f: FormData) {
     origem: "portal_nacional", codigo_tributacao_nacional: cfg!.nfse_codigo_tributacao_padrao,
     aliquota_iss: cfg!.nfse_aliquota_iss_padrao, ambiente, dps_id: r!.idDps,
   };
-  if (r!.ok) {
-    await sb.from("notas_fiscais").insert({ ...base, numero: r!.numero || String(numero), status: "autorizada", chave_acesso: r!.chave });
+  const res = r!;
+  if (res.ok) {
+    await sb.from("notas_fiscais").insert({ ...base, numero: res.numero || String(numero), status: "autorizada", chave_acesso: res.chave });
     revalidatePath(`/titulos/${id}`);
-    volta("ok=" + encodeURIComponent(`NFS-e nº ${r!.numero} autorizada${ambiente === "producao" ? "" : " (ambiente de teste, sem valor fiscal)"}.`));
+    return volta("ok=" + encodeURIComponent(`NFS-e nº ${res.numero} autorizada${ambiente === "producao" ? "" : " (ambiente de teste, sem valor fiscal)"}.`));
   }
-  await sb.from("notas_fiscais").insert({ ...base, numero: `DPS ${numero}`, status: "rejeitada", erros: r!.erros });
+  await sb.from("notas_fiscais").insert({ ...base, numero: `DPS ${numero}`, status: "rejeitada", erros: res.erros });
   revalidatePath(`/titulos/${id}`);
-  volta("erro=" + encodeURIComponent("Sefin recusou: " + r!.erros.map((x) => `${x.codigo} ${x.descricao}${x.complemento ? " (" + x.complemento + ")" : ""}`).join(" · ")));
+  volta("erro=" + encodeURIComponent("Sefin recusou: " + res.erros.map((x) => `${x.codigo} ${x.descricao}${x.complemento ? " (" + x.complemento + ")" : ""}`).join(" · ")));
 }
