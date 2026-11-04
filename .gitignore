@@ -1,0 +1,8 @@
+node_modules
+.next
+.env*.local
+.env
+.vercel
+# dados reais de clientes ficam fora do repositório
+supabase/seed_*.sql
+scripts/data_*.json
