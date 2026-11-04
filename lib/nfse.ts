@@ -50,14 +50,16 @@ export function montarInfDPS(d: DadosDPS) {
   const comp = d.competencia > dhEmi.slice(0, 10) ? dhEmi.slice(0, 10) : d.competencia;
   const doc = so(d.tomador.doc);
   const p = d.prestador;
+  // NT 009 (leiaute de 20/10/2026, já ativo na produção restrita): finNFSe obrigatório e xDescServ ao final do cServ
+  const nt009 = d.ambiente === "producao_restrita";
   const corpo =
     el("tpAmb", d.ambiente === "producao" ? 1 : 2) + el("dhEmi", dhEmi) + el("verAplic", "G7Pulse_1.0") +
-    el("serie", so(d.serie)) + el("nDPS", d.numero) + el("dCompet", comp) + el("tpEmit", 1) + el("cLocEmi", d.municipioIbge) +
+    el("serie", so(d.serie)) + el("nDPS", d.numero) + el("dCompet", comp) + el("tpEmit", 1) + (nt009 ? el("finNFSe", 0) : "") + el("cLocEmi", d.municipioIbge) +
     `<prest>${el("CNPJ", so(p.cnpj))}${el("fone", so(p.fone) || null)}${el("email", p.email)}` +
     `<regTrib>${el("opSimpNac", p.opSimpNac)}${p.opSimpNac === 3 ? el("regApTribSN", p.regApTribSN || 1) : ""}${el("regEspTrib", 0)}</regTrib></prest>` +
     `<toma>${doc.length === 11 ? el("CPF", doc) : el("CNPJ", doc)}${el("xNome", limpa(d.tomador.nome, 300))}${el("email", d.tomador.email?.trim() || null)}</toma>` +
     `<serv><locPrest>${el("cLocPrestacao", d.servico.municipioPrestacao || d.municipioIbge)}</locPrest>` +
-    `<cServ>${el("cTribNac", so(d.servico.cTribNac))}${el("xDescServ", limpa(d.servico.descricao, 2000))}${el("cNBS", so(d.servico.cNBS) || null)}</cServ></serv>` +
+    `<cServ>${el("cTribNac", so(d.servico.cTribNac))}${nt009 ? "" : el("xDescServ", limpa(d.servico.descricao, 2000))}${el("cNBS", so(d.servico.cNBS) || null)}${nt009 ? el("xDescServ", limpa(d.servico.descricao, 2000)) : ""}</cServ></serv>` +
     `<valores><vServPrest>${el("vServ", d.valor.toFixed(2))}</vServPrest><trib>` +
     `<tribMun>${el("tribISSQN", 1)}${el("tpRetISSQN", d.issRetido ? 2 : 1)}${d.aliquota ? el("pAliq", d.aliquota.toFixed(2)) : ""}</tribMun>` +
     `<tribFed><piscofins>${el("CST", "00")}${el("tpRetPisCofins", 0)}</piscofins></tribFed>` +
@@ -146,7 +148,7 @@ export async function emitirDPS(d: DadosDPS, cred: Credencial): Promise<Resultad
     const numero = nfse.match(/<nNFSe>(\d+)<\/nNFSe>/)?.[1] || "";
     return { ok: true, chave: c.chaveAcesso, numero, xml: nfse, idDps: inf.id, alertas: c.alertas || [] };
   }
-  const lista = (c.erros || c.Erros || []) as any[];
+  const lista = (c.erros || c.Erros || (c.erro ? [c.erro] : [])) as any[];
   const erros = lista.length
     ? lista.map((e) => ({ codigo: String(e.Codigo ?? e.codigo ?? ""), descricao: String(e.Descricao ?? e.descricao ?? ""), complemento: e.Complemento ?? e.complemento }))
     : [{ codigo: String(r.status), descricao: r.texto.slice(0, 500) || "Resposta vazia da Sefin" }];
