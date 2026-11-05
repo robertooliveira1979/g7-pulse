@@ -10,8 +10,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: atrasos } = await sb.from("v_titulos").select("tipo").eq("empresa_id", empresaId).eq("status", "Atrasado");
   const nR = (atrasos || []).filter((t) => t.tipo === "receber").length;
   const nP = (atrasos || []).filter((t) => t.tipo === "pagar").length;
+  const { data: superadmin } = await sb.rpc("e_superadmin");
   const { count: nOfx } = await sb.from("extrato_transacoes").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId).eq("status", "pendente");
-  const grupos: [string, { href: string; rotulo: string; icone: string; badge?: number }[]][] = [
+  type Grupo = [string, { href: string; rotulo: string; icone: string; badge?: number }[]];
+  const grupos: Grupo[] = [
     ["Visão geral", [{ href: "/", rotulo: "Dashboard", icone: "home" }, { href: "/gerencial", rotulo: "Gerencial e DRE", icone: "chart" }]],
     ["Financeiro", [
       { href: "/receber", rotulo: "Contas a receber", icone: "in", badge: nR },
@@ -24,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       { href: "/contas", rotulo: "Contas e caixas", icone: "bank" },
     ]],
     ["Configurações", [{ href: "/integracoes", rotulo: "Integrações", icone: "link" }]],
+    ...(superadmin ? [["Administração G7", [{ href: "/assinaturas", rotulo: "Assinaturas · Asaas", icone: "wallet" }]]] as Grupo[] : []),
   ];
   return (
     <div className="shell">
