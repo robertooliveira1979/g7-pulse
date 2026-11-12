@@ -1,0 +1,10 @@
+-- 12/11/2026 — aplicado direto no Supabase (migrations: centros_custo_e_transferencias, dre_por_centro_custo, importar_lote).
+-- Resumo do que foi criado/alterado:
+--   * centros_custo (id, empresa_id, codigo, nome, ativo) — RLS tem_acesso/pode_editar, auditoria, unique(empresa_id, nome)
+--   * titulos.centro_custo_id (FK centros_custo, on delete set null); fn_mesma_empresa passa a validar o centro
+--   * v_titulos ganha centro_custo_id e centro_custo_nome (no fim)
+--   * transferencias (conta_origem_id, conta_destino_id, data, valor > 0, descricao) — RLS, auditoria, trigger mesma empresa
+--   * v_saldo_contas: saldo inclui transferências; novas colunas transf_recebidas e transf_enviadas
+--   * v_dre_mensal: agrupa também por centro_custo_id (filtro da DRE por centro)
+--   * importar_lote(p_empresa, p jsonb): SECURITY INVOKER, grava centros, pessoas, flags, titulos e baixas numa transação
+-- Para recriar do zero, gere o DDL atual com: supabase db dump --schema public

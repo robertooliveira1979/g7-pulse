@@ -10,7 +10,7 @@ export default async function Contas({ searchParams }: { searchParams: Promise<{
   const { sb, empresaId, podeEditar } = await contexto();
   const [{ data: contas }, { data: saldos }] = await Promise.all([
     sb.from("contas_bancarias").select("*").eq("empresa_id", empresaId).order("nome"),
-    sb.from("v_saldo_contas").select("id,entradas,saidas,saldo").eq("empresa_id", empresaId),
+    sb.from("v_saldo_contas").select("id,entradas,saidas,saldo,transf_recebidas,transf_enviadas").eq("empresa_id", empresaId),
   ]);
   const S = Object.fromEntries((saldos || []).map((s) => [s.id, s]));
   const Form = ({ c }: { c?: Record<string, any> }) => (
@@ -37,7 +37,7 @@ export default async function Contas({ searchParams }: { searchParams: Promise<{
           {(contas || []).map((c) => (
             <div className="card" key={c.id}>
               <div style={{ display: "flex", justifyContent: "space-between" }}><h2>{c.nome}</h2><span className={"pill " + (c.ativa ? "ok" : "late")}>{c.ativa ? "Ativa" : "Inativa"}</span></div>
-              <div className="kpi"><span className={"v " + (Number(S[c.id]?.saldo) < 0 ? "neg" : "")}>{brl(S[c.id]?.saldo)}</span><span className="muted">Entradas {brl(S[c.id]?.entradas)} · Saídas {brl(S[c.id]?.saidas)}</span></div>
+              <div className="kpi"><span className={"v " + (Number(S[c.id]?.saldo) < 0 ? "neg" : "")}>{brl(S[c.id]?.saldo)}</span><span className="muted">Entradas {brl(S[c.id]?.entradas)} · Saídas {brl(S[c.id]?.saidas)}{(Number(S[c.id]?.transf_recebidas) || Number(S[c.id]?.transf_enviadas)) ? <> · Transferências +{brl(S[c.id]?.transf_recebidas)} / −{brl(S[c.id]?.transf_enviadas)}</> : null}</span></div>
               <details><summary className="btn sm">Editar</summary><div style={{ marginTop: 12 }}><Form c={c} /></div></details>
             </div>
           ))}

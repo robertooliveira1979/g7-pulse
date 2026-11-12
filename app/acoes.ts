@@ -52,7 +52,7 @@ export async function salvarTitulo(f: FormData) {
     categoria_id: txt(f, "categoria_id"),
     pessoa_id: txt(f, "pessoa_id"),
     conta_id: txt(f, "conta_id"),
-    centro_custo: txt(f, "centro_custo"),
+    centro_custo_id: txt(f, "centro_custo_id"),
     projeto: txt(f, "projeto"),
     tipo_gasto: tipo === "pagar" ? txt(f, "tipo_gasto") : null,
     forma_cobranca: txt(f, "forma_cobranca"),

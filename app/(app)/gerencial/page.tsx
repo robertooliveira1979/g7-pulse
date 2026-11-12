@@ -25,16 +25,22 @@ const LINHAS: Linha[] = [
 ];
 const pct = (v: number) => (isFinite(v) ? (v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%" : "—");
 
-export default async function Gerencial({ searchParams }: { searchParams: Promise<{ regime?: string; ano?: string; abrir?: string }> }) {
+export default async function Gerencial({ searchParams }: { searchParams: Promise<{ regime?: string; ano?: string; abrir?: string; cc?: string }> }) {
   const sp = await searchParams;
   const regime = sp.regime === "competencia" ? "competencia" : "caixa";
   const ano = sp.ano || hojeSP().slice(0, 4);
   const abertos = new Set((sp.abrir || "").split(",").filter(Boolean));
   const { sb, empresaId } = await contexto();
-  const [{ data }, { data: rec }] = await Promise.all([
-    sb.from("v_dre_mensal").select("mes,linha,codigo,nome,valor").eq("empresa_id", empresaId).eq("regime", regime).gte("mes", `${ano}-01-01`).lte("mes", `${ano}-12-01`),
-    sb.from("v_titulos").select("razao_social,nome_fantasia,valor_original,valor_baixado,vencimento,data_quitacao,data_emissao,status").eq("empresa_id", empresaId).eq("tipo", "receber").limit(10000),
+  const cc = sp.cc || "";
+  let qD = sb.from("v_dre_mensal").select("mes,linha,codigo,nome,valor").eq("empresa_id", empresaId).eq("regime", regime).gte("mes", `${ano}-01-01`).lte("mes", `${ano}-12-01`);
+  let qR = sb.from("v_titulos").select("razao_social,nome_fantasia,valor_original,valor_baixado,vencimento,data_quitacao,data_emissao,status").eq("empresa_id", empresaId).eq("tipo", "receber");
+  if (cc) { qD = cc === "sem" ? qD.is("centro_custo_id", null) : qD.eq("centro_custo_id", cc); qR = cc === "sem" ? qR.is("centro_custo_id", null) : qR.eq("centro_custo_id", cc); }
+  const [{ data }, { data: rec }, { data: centros }] = await Promise.all([
+    qD,
+    qR.limit(10000),
+    sb.from("centros_custo").select("id,nome").eq("empresa_id", empresaId).order("nome"),
   ]);
+  const qcc = cc ? `&cc=${cc}` : "";
   const D = (data || []) as { mes: string; linha: string | null; codigo: string; nome: string; valor: number }[];
   const g = (x: { linha: string | null }) => (x.linha || "").slice(0, 2);
   const val = (grupos: string[], m: number | null, codigo?: string) =>
@@ -45,7 +51,7 @@ export default async function Gerencial({ searchParams }: { searchParams: Promis
 
   const link = (k: string) => {
     const n = new Set(abertos); n.has(k) ? n.delete(k) : n.add(k);
-    return `/gerencial?regime=${regime}&ano=${ano}&abrir=${[...n].join(",")}`;
+    return `/gerencial?regime=${regime}&ano=${ano}${qcc}&abrir=${[...n].join(",")}`;
   };
 
   // ---------- Insights ----------
@@ -99,11 +105,18 @@ export default async function Gerencial({ searchParams }: { searchParams: Promis
     <>
       <Topo titulo="Gerencial e DRE">
         <div className="chips">
-          <Link className={"chip " + (regime === "caixa" ? "on" : "")} href={`/gerencial?regime=caixa&ano=${ano}`}>Regime de caixa</Link>
-          <Link className={"chip " + (regime === "competencia" ? "on" : "")} href={`/gerencial?regime=competencia&ano=${ano}`}>Competência</Link>
+          <Link className={"chip " + (regime === "caixa" ? "on" : "")} href={`/gerencial?regime=caixa&ano=${ano}${qcc}`}>Regime de caixa</Link>
+          <Link className={"chip " + (regime === "competencia" ? "on" : "")} href={`/gerencial?regime=competencia&ano=${ano}${qcc}`}>Competência</Link>
         </div>
       </Topo>
       <div className="view">
+        {(centros || []).length > 0 && (
+          <div className="chips">
+            <Link className={"chip " + (!cc ? "on" : "")} href={`/gerencial?regime=${regime}&ano=${ano}`}>Todos os centros</Link>
+            {(centros || []).map((c) => <Link key={c.id} className={"chip " + (cc === c.id ? "on" : "")} href={`/gerencial?regime=${regime}&ano=${ano}&cc=${c.id}`}>{c.nome}</Link>)}
+            <Link className={"chip " + (cc === "sem" ? "on" : "")} href={`/gerencial?regime=${regime}&ano=${ano}&cc=sem`}>Sem centro</Link>
+          </div>
+        )}
         <p className="muted" style={{ margin: 0 }}>{regime === "caixa" ? "Pela data de pagamento/recebimento e valor baixado." : "Pela data de emissão e valor original, pago ou não."} Ano {ano}.</p>
         <div className="grid k4">{ins.slice(0, 4).map(Card)}</div>
         <div className="card">

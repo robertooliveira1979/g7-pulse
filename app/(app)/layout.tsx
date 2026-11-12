@@ -18,14 +18,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ["Financeiro", [
       { href: "/receber", rotulo: "Contas a receber", icone: "in", badge: nR },
       { href: "/pagar", rotulo: "Contas a pagar", icone: "out", badge: nP },
+      { href: "/transferencias", rotulo: "Transferências", icone: "transf" },
       { href: "/conciliacao", rotulo: "Conciliação OFX", icone: "swap", badge: nOfx || 0 },
     ]],
     ["Cadastros", [
       { href: "/clientes", rotulo: "Clientes", icone: "users" },
       { href: "/fornecedores", rotulo: "Fornecedores", icone: "truck" },
       { href: "/contas", rotulo: "Contas e caixas", icone: "bank" },
+      { href: "/centros", rotulo: "Centros de custo", icone: "tag" },
     ]],
-    ["Configurações", [{ href: "/integracoes", rotulo: "Integrações", icone: "link" }]],
+    ["Configurações", [
+      { href: "/planilhas", rotulo: "Importar e exportar", icone: "upload" },
+      { href: "/integracoes", rotulo: "Integrações", icone: "link" },
+    ]],
     ...(superadmin ? [["Administração G7", [{ href: "/assinaturas", rotulo: "Assinaturas · Asaas", icone: "wallet" }]]] as Grupo[] : []),
   ];
   return (

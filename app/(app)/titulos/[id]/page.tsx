@@ -20,10 +20,11 @@ export default async function Titulo({ params, searchParams }: { params: Promise
   }
   const tipo = (t.tipo || (sp.tipo === "pagar" ? "pagar" : "receber")) as "pagar" | "receber";
   const prefixos = tipo === "receber" ? ["01", "03"] : ["02", "04", "05"];
-  const [{ data: cats }, { data: pessoas }, { data: contas }] = await Promise.all([
+  const [{ data: cats }, { data: pessoas }, { data: contas }, { data: centros }] = await Promise.all([
     sb.from("categorias").select("id,codigo,nome").eq("empresa_id", empresaId).eq("nivel", 3).eq("ativa", true).order("codigo"),
     sb.from("pessoas").select("id,razao_social,nome_fantasia").eq("empresa_id", empresaId).eq(tipo === "receber" ? "e_cliente" : "e_fornecedor", true).eq("ativo", true).order("razao_social"),
     sb.from("contas_bancarias").select("id,nome").eq("empresa_id", empresaId).eq("ativa", true).order("nome"),
+    sb.from("centros_custo").select("id,codigo,nome,ativo").eq("empresa_id", empresaId).order("nome"),
   ]);
   const { data: notas } = t.id ? await sb.from("notas_fiscais").select("id,numero,serie,data_emissao,valor,status,ambiente,chave_acesso,erros,pdf_url_externo,xml_path,email_enviado_em,email_enviado_para,pessoas(email)").eq("titulo_id", t.id).order("criado_em", { ascending: false }) : { data: [] as any[] };
   const F = (k: string, label: string, cls = "s2", tipoInput = "text", extra: Record<string, any> = {}) => (
@@ -49,7 +50,7 @@ export default async function Titulo({ params, searchParams }: { params: Promise
           <div className="field s3"><label htmlFor="forma_cobranca">{tipo === "receber" ? "Tipo de cobrança" : "Forma de pagamento"}</label><select id="forma_cobranca" name="forma_cobranca" defaultValue={t.forma_cobranca || FORMAS[tipo][0]}>{FORMAS[tipo].map((f) => <option key={f}>{f}</option>)}</select></div>
           {tipo === "pagar" && <><div className="field s2"><label htmlFor="tipo_gasto">Tipo de gasto</label><select id="tipo_gasto" name="tipo_gasto" defaultValue={t.tipo_gasto || "Fixo"}><option>Fixo</option><option>Variável</option></select></div>{F("chave_pix", "Chave PIX / linha digitável", "s4")}</>}
           <div className="sec">Controle</div>
-          {F("centro_custo", "Centro de custo")}{F(tipo === "pagar" ? "projeto" : "codigo_referencia", tipo === "pagar" ? "Projeto" : "Código de referência")}{F(tipo === "pagar" ? "ordem_compra" : "ordem_servico", tipo === "pagar" ? "Ordem de compra" : "Ordem de serviço")}
+          <div className="field s2"><label htmlFor="centro_custo_id">Centro de custo</label><select id="centro_custo_id" name="centro_custo_id" defaultValue={t.centro_custo_id || ""}><option value="">— Sem centro —</option>{(centros || []).filter((c) => c.ativo || c.id === t.centro_custo_id).map((c) => <option key={c.id} value={c.id}>{c.codigo ? c.codigo + " · " : ""}{c.nome}</option>)}</select></div>{F(tipo === "pagar" ? "projeto" : "codigo_referencia", tipo === "pagar" ? "Projeto" : "Código de referência")}{F(tipo === "pagar" ? "ordem_compra" : "ordem_servico", tipo === "pagar" ? "Ordem de compra" : "Ordem de serviço")}
           <div className="field s6"><label htmlFor="observacoes">Observações</label><textarea id="observacoes" name="observacoes" defaultValue={t.observacoes || ""} /></div>
           {sp.erro && <div className="err s6">{sp.erro}</div>}
           {podeEditar && <div className="s6" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}><button className="btn p">Salvar</button></div>}

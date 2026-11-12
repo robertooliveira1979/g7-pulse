@@ -4,7 +4,7 @@ import { contexto } from "@/lib/empresa";
 import { brl, dataBR, hojeSP } from "@/lib/format";
 import { baixarTitulo, estornarTitulo } from "@/app/acoes";
 
-type Filtros = { st?: string; q?: string; mes?: string; erro?: string };
+type Filtros = { st?: string; q?: string; mes?: string; cc?: string; erro?: string };
 
 export default async function ListaTitulos({ tipo, filtros }: { tipo: "pagar" | "receber"; filtros: Filtros }) {
   const { sb, empresaId, podeEditar } = await contexto();
@@ -20,16 +20,18 @@ export default async function ListaTitulos({ tipo, filtros }: { tipo: "pagar" | 
     const s = filtros.q.replace(/[%,()]/g, " ");
     q = q.or(`descricao.ilike.%${s}%,razao_social.ilike.%${s}%,nome_fantasia.ilike.%${s}%,categoria_nome.ilike.%${s}%,documento.ilike.%${s}%`);
   }
+  if (filtros.cc) q = filtros.cc === "sem" ? q.is("centro_custo_id", null) : q.eq("centro_custo_id", filtros.cc);
   q = st === "Quitado" ? q.order("data_quitacao", { ascending: false }) : q.order("vencimento");
-  const [{ data }, { data: contas }] = await Promise.all([
+  const [{ data }, { data: contas }, { data: centros }] = await Promise.all([
     q.limit(500),
     sb.from("contas_bancarias").select("id,nome").eq("empresa_id", empresaId).eq("ativa", true).order("nome"),
+    sb.from("centros_custo").select("id,nome").eq("empresa_id", empresaId).order("nome"),
   ]);
   const lista = data || [];
   const total = lista.reduce((s, t) => s + Number(t.status === "Quitado" ? t.valor_baixado : t.saldo), 0);
   const base = "/" + tipo;
   const link = (o: Partial<Filtros>) => {
-    const p = new URLSearchParams({ ...(filtros.q ? { q: filtros.q } : {}), ...(filtros.mes ? { mes: filtros.mes } : {}), st, ...o } as Record<string, string>);
+    const p = new URLSearchParams({ ...(filtros.q ? { q: filtros.q } : {}), ...(filtros.mes ? { mes: filtros.mes } : {}), ...(filtros.cc ? { cc: filtros.cc } : {}), st, ...o } as Record<string, string>);
     return `${base}?${p}`;
   };
   const voltaAtual = link({});
@@ -44,6 +46,7 @@ export default async function ListaTitulos({ tipo, filtros }: { tipo: "pagar" | 
           <input type="hidden" name="st" value={st} />
           <input className="input" style={{ flex: "1 1 240px", width: "auto" }} name="q" defaultValue={filtros.q} placeholder={`Buscar por ${tipo === "receber" ? "cliente" : "fornecedor"}, descrição, categoria…`} aria-label="Buscar" />
           <input className="input" style={{ width: "auto" }} type="month" name="mes" defaultValue={filtros.mes} aria-label="Mês de vencimento" />
+          {(centros || []).length > 0 && <select name="cc" defaultValue={filtros.cc || ""} style={{ width: "auto" }} aria-label="Centro de custo"><option value="">Todos os centros</option><option value="sem">Sem centro de custo</option>{(centros || []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>}
           <button className="btn">Filtrar</button>
         </form>
         <div className="chips">
@@ -58,7 +61,7 @@ export default async function ListaTitulos({ tipo, filtros }: { tipo: "pagar" | 
             {lista.map((t) => (
               <tr key={t.id}>
                 <td className="num">{dataBR(t.vencimento)}{t.data_quitacao && <span className="sub">Baixa {dataBR(t.data_quitacao)}</span>}</td>
-                <td style={{ minWidth: 220 }}><Link href={`/titulos/${t.id}`} style={{ color: "var(--fg)", fontWeight: 500 }}>{t.nome_fantasia || t.razao_social || "—"}</Link><span className="sub">{t.descricao || t.observacoes || "—"}</span></td>
+                <td style={{ minWidth: 220 }}><Link href={`/titulos/${t.id}`} style={{ color: "var(--fg)", fontWeight: 500 }}>{t.nome_fantasia || t.razao_social || "—"}</Link><span className="sub">{t.descricao || t.observacoes || "—"}{t.centro_custo_nome && <> · <b style={{ fontWeight: 500 }}>{t.centro_custo_nome}</b></>}</span></td>
                 <td><span className="sub" style={{ color: "var(--fg)" }}>{t.categoria_nome}</span><span className="sub mono">{t.categoria_codigo}</span></td>
                 <td className="muted" style={{ whiteSpace: "nowrap" }}>{t.forma_cobranca}</td>
                 <td className={"r num " + (tipo === "receber" ? "pos" : "neg")}><b>{brl(t.status === "Quitado" ? t.valor_baixado : t.saldo)}</b></td>
