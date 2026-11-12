@@ -6,15 +6,16 @@ import { Marca } from "@/components/Icone";
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { sb, empresa, empresaId, vinculos, perfil, papel } = await contexto();
+  const { sb, user, empresa, empresaId, vinculos, perfil, papel } = await contexto();
   const { data: atrasos } = await sb.from("v_titulos").select("tipo").eq("empresa_id", empresaId).eq("status", "Atrasado");
   const nR = (atrasos || []).filter((t) => t.tipo === "receber").length;
   const nP = (atrasos || []).filter((t) => t.tipo === "pagar").length;
   const { data: superadmin } = await sb.rpc("e_superadmin");
+  const { count: nTar } = await sb.from("tarefas").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId).eq("responsavel_id", user.id).is("concluida_em", null);
   const { count: nOfx } = await sb.from("extrato_transacoes").select("id", { count: "exact", head: true }).eq("empresa_id", empresaId).eq("status", "pendente");
   type Grupo = [string, { href: string; rotulo: string; icone: string; badge?: number }[]];
   const grupos: Grupo[] = [
-    ["Visão geral", [{ href: "/", rotulo: "Dashboard", icone: "home" }, { href: "/gerencial", rotulo: "Gerencial e DRE", icone: "chart" }]],
+    ["Visão geral", [{ href: "/", rotulo: "Dashboard", icone: "home" }, { href: "/gerencial", rotulo: "Gerencial e DRE", icone: "chart" }, { href: "/tarefas", rotulo: "Tarefas", icone: "tasks", badge: nTar || 0 }]],
     ["Financeiro", [
       { href: "/receber", rotulo: "Contas a receber", icone: "in", badge: nR },
       { href: "/pagar", rotulo: "Contas a pagar", icone: "out", badge: nP },

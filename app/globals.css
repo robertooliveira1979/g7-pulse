@@ -162,3 +162,47 @@ details.baixa[open]{background:var(--panel-2);border-radius:8px;padding:6px}
 }
 @media (max-width:640px){.k4,.k3,.k2{grid-template-columns:1fr}.form{grid-template-columns:1fr 1fr}.s3,.s4,.s6{grid-column:1/-1}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- Tarefas (Kanban + lista) ---------- */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:none;padding:7px 14px;cursor:pointer;color:var(--muted);font:inherit;font-weight:500}
+.seg button.on{background:color-mix(in srgb,var(--brand) 18%,transparent);color:var(--brand-text)}
+.kb{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:12px 2px 16px;min-height:60vh;scroll-snap-type:x proximity}
+.kb-col{flex:0 0 288px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;max-height:calc(100vh - 210px);scroll-snap-align:start;transition:border-color .15s}
+.kb-col.alvo{border-color:var(--brand)}
+.kb-h{display:flex;align-items:center;gap:8px;padding:10px 10px 6px}
+.kb-dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+.kb-nome{flex:1;min-width:0;border:1px solid transparent;background:none;color:var(--fg);font:600 14px var(--f-body);padding:3px 5px;border-radius:6px}
+.kb-nome:hover{border-color:var(--line)}.kb-nome:focus{outline:none;border-color:var(--brand);background:var(--panel)}
+.kb-n{font-size:12px;color:var(--muted);background:var(--panel);border-radius:999px;padding:1px 8px}
+.kb-menu{position:relative}
+.kb-menu summary{list-style:none;cursor:pointer;padding:2px 8px;border-radius:6px;color:var(--muted);font-weight:700}
+.kb-menu summary::-webkit-details-marker{display:none}.kb-menu summary:hover{background:var(--panel)}
+.kb-pop{position:absolute;right:0;top:26px;z-index:20;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:10px;display:flex;flex-direction:column;gap:10px;width:230px}
+.kb-cores{display:flex;flex-wrap:wrap;gap:6px}.kb-cores button{width:20px;height:20px;border-radius:50%;border:0;cursor:pointer;outline-offset:2px}
+.kb-chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer}
+.kb-lista{display:flex;flex-direction:column;gap:8px;padding:4px 10px;overflow-y:auto;min-height:40px}
+.kb-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 11px;cursor:grab;display:flex;flex-direction:column;gap:7px;box-shadow:0 1px 0 rgba(0,0,0,.04)}
+.kb-card:hover{border-color:color-mix(in srgb,var(--brand) 45%,var(--line))}
+.kb-card:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.kb-card.fantasma{opacity:.35}
+.kb-tit{font-size:14px;line-height:1.35;word-break:break-word}
+.feita{text-decoration:line-through;color:var(--muted)}
+.kb-tags{display:flex;flex-wrap:wrap;gap:4px}.kb-tags span{font-size:11px;background:var(--panel-2);border-radius:5px;padding:1px 6px;color:var(--muted)}
+.kb-meta{display:flex;align-items:center;gap:8px;font-size:12px}
+.tq-prio{font-size:12px;font-weight:600}
+.av{width:24px;height:24px;border-radius:50%;background:color-mix(in srgb,var(--brand) 22%,var(--panel));color:var(--brand-text);font-size:10.5px;font-weight:700;display:inline-grid;place-items:center;flex:none}
+.av-l{display:inline-flex;align-items:center;gap:8px}
+.kb-marca{height:3px;border-radius:2px;background:var(--brand);margin:2px 0}
+.kb-add{border:0;background:none;color:var(--muted);text-align:left;padding:9px 12px 12px;cursor:pointer;font:inherit;font-size:13px;border-radius:0 0 12px 12px}
+.kb-add:hover{color:var(--fg);background:color-mix(in srgb,var(--panel) 60%,transparent)}
+.kb-addf{padding:4px 10px 12px}
+.kb-nova{flex:0 0 220px;border:1.5px dashed var(--line);background:none;border-radius:12px;padding:14px;color:var(--muted);cursor:pointer;font:inherit;font-weight:500}
+.kb-nova:hover{color:var(--fg);border-color:var(--brand)}
+.tq-grupo td{background:var(--panel-2);font-size:13px}
+.tq-tit{border:0;background:none;padding:0;color:var(--fg);font:inherit;font-weight:500;cursor:pointer;text-align:left}
+.tq-tit:hover{color:var(--brand-text);text-decoration:underline}
+.tq-fundo{position:fixed;inset:0;background:rgba(5,15,20,.55);z-index:50;display:grid;place-items:center;padding:16px}
+.tq-modal{width:min(640px,100%);max-height:calc(100vh - 32px);overflow:auto;display:flex;flex-direction:column;gap:14px}
+textarea.input{resize:vertical;font:inherit}
+@media (max-width:640px){.kb-col{flex-basis:84vw}}

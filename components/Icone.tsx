@@ -14,6 +14,7 @@ const P: Record<string, React.ReactNode> = {
   share: <><circle cx="12" cy="12" r="9" /><path d="M12 7v10M8.5 10.5c0-1.3 1.5-2 3.5-2s3.5.8 3.5 2-1.5 1.7-3.5 2-3.5.8-3.5 2 1.5 2 3.5 2 3.5-.7 3.5-2" /></>,
   upload: <path d="M12 16V4M7 9l5-5 5 5M4 20h16" />,
   download: <path d="M12 4v12M7 11l5 5 5-5M4 20h16" />,
+  tasks: <><rect x="3" y="4" width="5" height="16" rx="1.5" /><rect x="10" y="4" width="5" height="11" rx="1.5" /><rect x="17" y="4" width="4" height="7" rx="1.5" /></>,
   transf: <path d="M4 8h13l-3-3M20 16H7l3 3" />,
   tag: <><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z" /><circle cx="8" cy="8" r="1.5" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
