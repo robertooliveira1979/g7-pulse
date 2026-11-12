@@ -164,3 +164,15 @@ revoke execute on function salvar_asaas_config(uuid, text, text), asaas_webhook_
 grant execute on function salvar_asaas_config(uuid, text, text), asaas_webhook_token(uuid), asaas_aplicar_pagamento(jsonb) to authenticated;
 revoke execute on function obter_asaas_config(uuid, text), asaas_webhook(text, jsonb) from public;
 grant execute on function obter_asaas_config(uuid, text), asaas_webhook(text, jsonb) to anon, authenticated;
+
+-- (aplicada em 12/11) token do webhook para o servidor, com a chave de serviço
+create or replace function asaas_webhook_token_servico(p_empresa uuid, p_chave text)
+returns text language plpgsql security definer set search_path = public as $$
+declare chave text;
+begin
+  select decrypted_secret into chave from vault.decrypted_secrets where name = 'nfse_chave_servico';
+  if chave is null or p_chave is distinct from chave then raise exception 'Chave de serviço inválida'; end if;
+  return (select s.decrypted_secret from integracoes i join vault.decrypted_secrets s on s.id = i.asaas_webhook_token_secret where i.empresa_id = p_empresa);
+end $$;
+revoke execute on function asaas_webhook_token_servico(uuid, text) from public;
+grant execute on function asaas_webhook_token_servico(uuid, text) to anon, authenticated;

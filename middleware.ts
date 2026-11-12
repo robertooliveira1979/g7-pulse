@@ -3,7 +3,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLICAS = ["/login", "/auth", "/api/asaas/webhook"];
+const PUBLICAS = ["/login", "/auth", "/api/asaas/webhook", "/api/asaas/configurar"];
 
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({ request: req });
